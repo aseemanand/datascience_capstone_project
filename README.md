@@ -1,2 +1,2 @@
-# Data Science capstone projects
+# Data Science Capstone Project
 Demonstrate projects for Data Science Specialization
