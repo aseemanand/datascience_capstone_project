@@ -1567,7 +1567,7 @@ border-radius: 0px;
 Report</h1>
 <h3 class="subtitle">Exploratory analysis of the SwiftKey English
 corpora</h3>
-<h4 class="author">Your Name</h4>
+<h4 class="author">Aseem Anand</h4>
 <h4 class="date">2026-05-08</h4>
 
 </div>
@@ -1579,9 +1579,7 @@ corpora</h3>
 (EDA)</strong> on the English-language training text from the SwiftKey
 data bundle (blogs, news, and Twitter). The goals are to characterize
 basic scale and structure of each source—file size, line counts, token
-counts per line, and simple lexical patterns—and to outline how these
-observations will inform the <strong>next-word prediction model</strong>
-behind the capstone Shiny application.</p>
+counts per line, and simple lexical patterns.</p>
 <p>The analysis reads <strong>partial samples</strong> from each file so
 the document knits in reasonable time on a laptop; full-file summaries
 that do not require loading every line (for example, total line counts
@@ -1589,8 +1587,13 @@ via the shell on Unix-like systems) are computed when available.</p>
 </div>
 <div id="data-sources-and-loading" class="section level2">
 <h2>Data sources and loading</h2>
-<p>Three plain-text corpora are used, all under
-<code>final/en_US/</code> after unpacking <a href="Coursera-SwiftKey.zip">Coursera-SwiftKey.zip</a>:</p>
+<p>Three plain-text corpora are read from
+<strong><code>Coursera-SwiftKey.zip</code></strong> at the project root
+(paths inside the archive: <code>final/en_US/en_US.blogs.txt</code>,
+<code>final/en_US/en_US.news.txt</code>,
+<code>final/en_US/en_US.twitter.txt</code>). If the zip file is absent,
+the same files are read from an extracted
+<strong><code>final/en_US/</code></strong> folder.</p>
 <table>
 <thead>
 <tr class="header">
@@ -1613,12 +1616,6 @@ via the shell on Unix-like systems) are computed when available.</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Setup:</strong> Unzip the archive at the project root so
-paths resolve as <code>final/en_US/*.txt</code>. Optional: set a
-different root by passing <code>root</code> into
-<code>default_swiftkey_en_dir()</code> in
-<code>R/milestone_paths.R</code> or edit <code>data_dir</code> in the
-first chunk after sourcing modules.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
@@ -1626,24 +1623,31 @@ first chunk after sourcing modules.</p>
 <span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a></span>
 <span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="fu">source</span>(<span class="st">&quot;R/source_milestone_modules.R&quot;</span>, <span class="at">encoding =</span> <span class="st">&quot;UTF-8&quot;</span>)</span>
 <span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a></span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>data_dir <span class="ot">&lt;-</span> <span class="fu">default_swiftkey_en_dir</span>()</span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>paths <span class="ot">&lt;-</span> <span class="fu">swiftkey_en_file_paths</span>(data_dir)</span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="fu">assert_swiftkey_en_present</span>(paths)</span></code></pre></div>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Lines read per file for distribution plots and sampled summaries (adjust upward if needed).</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>swiftkey <span class="ot">&lt;-</span> <span class="fu">resolve_swiftkey_en</span>()</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="fu">assert_swiftkey_data_available</span>(swiftkey)</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># The number of lines sampled per source can be adjusted here.</span></span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>sample_lines_per_file <span class="ot">&lt;-</span> <span class="dv">60000</span><span class="dt">L</span></span></code></pre></div>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>file_sizes_mb <span class="ot">&lt;-</span> <span class="fu">corpus_file_inventory</span>(paths)</span>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>file_sizes_mb <span class="ot">&lt;-</span> <span class="fu">corpus_file_inventory_from_spec</span>(swiftkey)</span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">kable</span>(</span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  file_sizes_mb <span class="sc">%&gt;%</span> <span class="fu">select</span>(source, size_mb, lines_total),</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  file_sizes_mb <span class="sc">%&gt;%</span> <span class="fu">select</span>(source, path, size_mb, lines_total),</span>
 <span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">digits =</span> <span class="dv">2</span>,</span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">&quot;English corpus files: size on disk and approximate total lines (Unix wc -l).&quot;</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">&quot;English corpus: size as stored (zip entry or file on disk) and line totals (Unix: wc on files; zip members via unzip streaming).&quot;</span></span>
 <span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>)</span></code></pre></div>
 <table>
-<caption>English corpus files: size on disk and approximate total lines
-(Unix wc -l).</caption>
+<caption>English corpus: size as stored (zip entry or file on disk) and
+line totals (Unix: wc on files; zip members via unzip
+streaming).</caption>
+<colgroup>
+<col width="9%" />
+<col width="65%" />
+<col width="9%" />
+<col width="14%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th align="left">source</th>
+<th align="left">path</th>
 <th align="right">size_mb</th>
 <th align="right">lines_total</th>
 </tr>
@@ -1651,22 +1655,25 @@ first chunk after sourcing modules.</p>
 <tbody>
 <tr class="odd">
 <td align="left">blogs</td>
+<td align="left">Coursera-SwiftKey.zip::final/en_US/en_US.blogs.txt</td>
 <td align="right">200.42</td>
 <td align="right">NA</td>
 </tr>
 <tr class="even">
 <td align="left">news</td>
+<td align="left">Coursera-SwiftKey.zip::final/en_US/en_US.news.txt</td>
 <td align="right">196.28</td>
 <td align="right">NA</td>
 </tr>
 <tr class="odd">
 <td align="left">twitter</td>
+<td align="left">Coursera-SwiftKey.zip::final/en_US/en_US.twitter.txt</td>
 <td align="right">159.36</td>
 <td align="right">NA</td>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>samples <span class="ot">&lt;-</span> <span class="fu">assemble_head_samples</span>(paths, sample_lines_per_file)</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>samples <span class="ot">&lt;-</span> <span class="fu">assemble_head_samples</span>(swiftkey, sample_lines_per_file)</span></code></pre></div>
 </div>
 <div id="summary-statistics-sampled-lines" class="section level2">
 <h2>Summary statistics (sampled lines)</h2>
@@ -1789,60 +1796,6 @@ malformed bytes may be skipped by <code>readLines</code>.</li>
 intentionally simple; it does not normalize hashtags, URLs, or
 punctuation-rich entities the way a production tokenizer might.</li>
 </ul>
-</div>
-<div id="plans-for-the-predictive-model-and-shiny-product" class="section level2">
-<h2>Plans for the predictive model and Shiny product</h2>
-<p>Building on this EDA, the modeling pipeline will:</p>
-<ol style="list-style-type: decimal">
-<li><p><strong>Normalize text</strong> for training: consistent casing
-(typically lowercasing), sensible handling of punctuation and
-contractions, and optional removal or masking of URLs and
-handles—balancing vocabulary size against retained signal.</p></li>
-<li><p><strong>Build n-gram language models</strong> (unigrams through
-trigrams, with possible quadgrams where memory allows) estimated from
-the combined English corpus, possibly with <strong>source-specific
-weights</strong> if blending improves validation metrics.</p></li>
-<li><p><strong>Backoff / smoothing</strong> (for example, Katz backoff
-or stupid backoff, or Kneser–Ney–style discounting) so unseen n-grams do
-not zero out predictions and probability mass flows sensibly to shorter
-contexts.</p></li>
-<li><p><strong>Prune</strong> low-count n-grams and quantize stored
-probabilities to meet memory constraints for hosting—critical for a
-responsive Shiny app—while monitoring impact on held-out perplexity or
-accuracy.</p></li>
-<li><p><strong>Evaluate</strong> on held-out text from the same
-distribution (time-ordered or random split after shuffling lines within
-sources), reporting both intrinsic scores and qualitative spot-checks of
-next-word suggestions.</p></li>
-<li><p><strong>Expose</strong> the model in Shiny with fast lookup
-structures (hashed tables or indexed binary formats) and clear UX for
-partial phrases and backoff behavior.</p></li>
-</ol>
-<p>These steps align standard statistical NLP practice with the
-practical limits seen here: <strong>Twitter-like lines are
-short</strong>, <strong>blogs/news lines are longer</strong>, and
-<strong>token distributions are heavily skewed</strong> toward frequent
-function words—facts that motivate backoff-heavy models and careful
-pruning.</p>
-<hr />
-<div id="publishing-the-html-report" class="section level3">
-<h3>Publishing the HTML report</h3>
-<ol style="list-style-type: decimal">
-<li>Open <code>capstone_milestone_report.Rmd</code> in RStudio.</li>
-<li>Install missing packages if prompted
-(<code>install.packages(c(&quot;dplyr&quot;, &quot;ggplot2&quot;, &quot;scales&quot;, &quot;knitr&quot;, &quot;rmarkdown&quot;))</code>).</li>
-<li>Click <strong>Knit</strong> to build the HTML report.</li>
-<li>If you use RStudio’s publishing workflow, upload or deploy the
-rendered HTML through the options available in your environment.</li>
-</ol>
-<p>Ensure <code>final/en_US/</code> exists relative to the Rmd file
-before knitting.</p>
-<p><strong>R scripts:</strong> Reusable logic lives under
-<code>R/</code>. <code>R/source_milestone_modules.R</code> loads
-<code>milestone_paths.R</code>, <code>milestone_text_utils.R</code>,
-<code>milestone_load_samples.R</code>, and <code>milestone_eda.R</code>
-in order.</p>
-</div>
 </div>
 
 
