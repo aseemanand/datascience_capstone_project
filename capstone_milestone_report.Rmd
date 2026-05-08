@@ -1,0 +1,155 @@
+---
+title: "Data Science Capstone — Milestone Report"
+subtitle: "Exploratory analysis of the SwiftKey English corpora"
+author: "Aseem Anand"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: readable
+    highlight: tango
+    df_print: kable
+    self_contained: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 8,
+  fig.height = 5,
+  dpi = 120
+)
+```
+
+## Synopsis
+
+This milestone report summarizes **exploratory data analysis (EDA)** on the English-language training text from the SwiftKey data bundle (blogs, news, and Twitter). The goals are to characterize basic scale and structure of each source—file size, line counts, token counts per line, and simple lexical patterns—and to outline how these observations will inform the **next-word prediction model** behind the capstone Shiny application.
+
+The analysis reads **partial samples** from each file so the document knits in reasonable time on a laptop; full-file summaries that do not require loading every line (for example, total line counts via the shell on Unix-like systems) are computed when available.
+
+## Data sources and loading
+
+Three plain-text corpora are used, all under `final/en_US/` after unpacking [Coursera-SwiftKey.zip](Coursera-SwiftKey.zip):
+
+| File | Description |
+|------|-------------|
+| `en_US.blogs.txt` | Personal blog posts |
+| `en_US.news.txt` | News articles |
+| `en_US.twitter.txt` | Twitter-like short messages |
+
+**Setup:** Unzip the archive at the project root so paths resolve as `final/en_US/*.txt`. Optional: set a different root by passing `root` into `default_swiftkey_en_dir()` in `R/milestone_paths.R` or edit `data_dir` in the first chunk after sourcing modules.
+
+```{r paths-and-packages}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(knitr)
+
+source("R/source_milestone_modules.R", encoding = "UTF-8")
+
+data_dir <- default_swiftkey_en_dir()
+paths <- swiftkey_en_file_paths(data_dir)
+assert_swiftkey_en_present(paths)
+```
+
+```{r sampling-parameters}
+# Lines read per file for distribution plots and sampled summaries (adjust upward if needed).
+sample_lines_per_file <- 60000L
+```
+
+```{r count-lines-unix}
+file_sizes_mb <- corpus_file_inventory(paths)
+
+kable(
+  file_sizes_mb %>% select(source, size_mb, lines_total),
+  digits = 2,
+  caption = "English corpus files: size on disk and approximate total lines (Unix wc -l)."
+)
+```
+
+```{r read-samples}
+samples <- assemble_head_samples(paths, sample_lines_per_file)
+```
+
+## Summary statistics (sampled lines)
+
+```{r summary-stats}
+sum_tab <- summarize_line_samples(samples)
+
+kable(
+  sum_tab,
+  digits = 2,
+  caption = "Per-source summaries on the head sample (first N lines per file; see sampling note)."
+)
+```
+
+The **Twitter** file tends to produce shorter lines (fewer words and characters per line) than **blogs** and **news**, which aligns with length constraints and informal style on microblogging platforms versus longer-form writing.
+
+## Distribution of words per line
+
+```{r plot-words-per-line, fig.cap = "Distribution of words per line by source (sampled lines)."}
+plot_words_per_line_density(samples)
+```
+
+```{r plot-boxplot-words}
+plot_words_per_line_box(samples)
+```
+
+## Characters per line
+
+```{r plot-chars-per-line, fig.cap = "Characters per line by source (sampled)."}
+plot_chars_per_line_density(samples)
+```
+
+## Simple lexical exploration (sample only)
+
+The corpora are large; here we tokenize **sampled lines** into lowercase word tokens (letters and apostrophes kept) and inspect the most frequent types.
+
+```{r token-frequency}
+top_tokens <- top_tokens_by_source(samples, k = 15L)
+plot_top_tokens_faceted(top_tokens)
+```
+
+High-frequency items are dominated by **function words** (articles, pronouns, prepositions). For prediction modeling, these frequent contexts matter for smooth phrase completions; rare and offensive tokens should still be handled deliberately when cleaning and filtering training statistics.
+
+## Limitations of this EDA
+
+- **Sampling:** Statistics on words per line and token frequencies use the **first** `r sample_lines_per_file` lines of each file (and token plots subset further). Tail behavior and rare phenomena may differ in unseen portions of the files.
+- **Encoding:** Text is read as UTF-8; occasional malformed bytes may be skipped by `readLines`.
+- **Token definition:** The regex tokenizer is intentionally simple; it does not normalize hashtags, URLs, or punctuation-rich entities the way a production tokenizer might.
+
+## Plans for the predictive model and Shiny product
+
+Building on this EDA, the modeling pipeline will:
+
+1. **Normalize text** for training: consistent casing (typically lowercasing), sensible handling of punctuation and contractions, and optional removal or masking of URLs and handles—balancing vocabulary size against retained signal.
+
+2. **Build n-gram language models** (unigrams through trigrams, with possible quadgrams where memory allows) estimated from the combined English corpus, possibly with **source-specific weights** if blending improves validation metrics.
+
+3. **Backoff / smoothing** (for example, Katz backoff or stupid backoff, or Kneser–Ney–style discounting) so unseen n-grams do not zero out predictions and probability mass flows sensibly to shorter contexts.
+
+4. **Prune** low-count n-grams and quantize stored probabilities to meet memory constraints for hosting—critical for a responsive Shiny app—while monitoring impact on held-out perplexity or accuracy.
+
+5. **Evaluate** on held-out text from the same distribution (time-ordered or random split after shuffling lines within sources), reporting both intrinsic scores and qualitative spot-checks of next-word suggestions.
+
+6. **Expose** the model in Shiny with fast lookup structures (hashed tables or indexed binary formats) and clear UX for partial phrases and backoff behavior.
+
+These steps align standard statistical NLP practice with the practical limits seen here: **Twitter-like lines are short**, **blogs/news lines are longer**, and **token distributions are heavily skewed** toward frequent function words—facts that motivate backoff-heavy models and careful pruning.
+
+---
+
+### Publishing the HTML report
+
+1. Open `capstone_milestone_report.Rmd` in RStudio.
+2. Install missing packages if prompted (`install.packages(c("dplyr", "ggplot2", "scales", "knitr", "rmarkdown"))`).
+3. Click **Knit** to build the HTML report.
+4. If you use RStudio’s publishing workflow, upload or deploy the rendered HTML through the options available in your environment.
+
+Ensure `final/en_US/` exists relative to the Rmd file before knitting.
+
+**R scripts:** Reusable logic lives under `R/`. `R/source_milestone_modules.R` loads `milestone_paths.R`, `milestone_text_utils.R`, `milestone_load_samples.R`, and `milestone_eda.R` in order.
