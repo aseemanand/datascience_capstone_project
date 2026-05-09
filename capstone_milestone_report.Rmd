@@ -32,6 +32,8 @@ This milestone report summarizes **exploratory data analysis (EDA)** on the Engl
 
 The analysis reads **partial samples** from each file so the document knits in reasonable time on a laptop; full-file summaries that do not require loading every line (for example, total line counts via the shell on Unix-like systems) are computed when available.
 
+**Companion work:** Predictive modeling and rank-based accuracy evaluation on held-out text are documented separately in **`model_accuracy_report.Rmd`** (same English SwiftKey source and token style).
+
 ## Data sources and loading
 
 Three plain-text corpora are read from **`Coursera-SwiftKey.zip`** at the project root (paths inside the archive: `final/en_US/en_US.blogs.txt`, `final/en_US/en_US.news.txt`, `final/en_US/en_US.twitter.txt`). If the zip file is absent, the same files are read from an extracted **`final/en_US/`** folder.
