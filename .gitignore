@@ -1,3 +1,4 @@
 Coursera-SwiftKey.zip
 final/
 .DS_Store
+app/data/*.rds

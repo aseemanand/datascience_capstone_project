@@ -1,0 +1,11 @@
+# Exclude heavy / irrelevant paths from shinyapps.io bundles (same role as .gitignore).
+.git/
+.gitignore
+.DS_Store
+Coursera-SwiftKey.zip
+*.zip
+final/
+*.html
+capstone_milestone_report.Rmd
+model_accuracy_report.Rmd
+.gitattributes

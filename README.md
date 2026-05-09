@@ -1,31 +1,16 @@
-# Data Science Capstone (SwiftKey English)
+# Data Science Capstone Project (SwiftKey)
 
-Coursera-style capstone using the English SwiftKey corpora (blogs, news, Twitter).
+This repository contains work for a Coursera-style Data Science capstone using the English SwiftKey corpora (blogs, news, and Twitter). The centerpiece is a **next-word prediction** model: given a short phrase, it suggests the most likely following word using Katz backoff over pruned n-gram tables.
 
-## Reports (knit from project root)
+[Milestone report](capstone_milestone_report.Rmd)  
+*Exploratory analysis: corpus scale, line and token distributions, and simple lexical summaries.*
 
-| Document | Purpose |
-|----------|---------|
-| **`capstone_milestone_report.Rmd`** | EDA: corpus scale, line/token distributions, simple lexical summaries (reads zip or `final/en_US/`). |
-| **`model_accuracy_report.Rmd`** | Predictive model: Katz backoff n-grams, Bachman-style accuracy, timing; uses `data.table`. |
+[Model accuracy report](model_accuracy_report.Rmd)  
+*Predictive evaluation: backoff language model, Bachman-style accuracy, and timing.*
 
-```r
-rmarkdown::render("capstone_milestone_report.Rmd")
-rmarkdown::render("model_accuracy_report.Rmd")
-```
+[Next-word prediction app](https://aseemanand.shinyapps.io/SwiftKey-Next-Word/)  
+*Interactive Shiny app — type a phrase and inspect ranked predictions and plots.*
 
-## Data layout
+---
 
-- **`Coursera-SwiftKey.zip`** at the repo root (recommended), or **`final/en_US/*.txt`** after unzip.
-- Large artifacts are listed in **`.gitignore`** — keep the zip locally and share reports only if desired.
-
-## R modules
-
-- **`R/source_milestone_modules.R`** — paths, sampling, EDA plots (`capstone_milestone_report.Rmd`).
-- **`R/source_lm_pipeline.R`** — tokenization, `build_ngram_lm`, Katz prediction, Bachman evaluation (`model_accuracy_report.Rmd`).
-
-## Packages
-
-**Milestone:** `dplyr`, `ggplot2`, `scales`, `knitr`, `rmarkdown`.
-
-**Model accuracy:** above plus **`data.table`** (installed automatically in the report chunk if missing).
+**Data:** place **`Coursera-SwiftKey.zip`** at the repo root, or extract English files under **`final/en_US/`**, to knit the reports locally. Implementation notes for the Shiny bundle live in **`app/README.md`**.

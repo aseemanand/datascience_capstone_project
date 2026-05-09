@@ -1,0 +1,89 @@
+---
+title: "Coursera Data Science Capstone Project"
+subtitle: "next-word predictor"
+author: "Aseem Anand"
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    footer: "Next-word prediction (Katz backoff)"
+    smaller: true
+    scrollable: true
+    title-slide-attributes:
+      data-background-color: "#2c3e50"
+---
+
+## Live app
+
+**Next-word prediction (Katz backoff)** — [aseemanand.shinyapps.io/SwiftKey-Next-Word](https://aseemanand.shinyapps.io/SwiftKey-Next-Word/)
+
+![](<Word Prediction App.png>){.r-stretch fig-alt="Shiny app: phrase input, Katz sliders, best guess and top predictions"}
+
+::: {.notes}
+Image uses Reveal “stretch” so it fills the space under the link on this slide.
+:::
+
+## Overview
+
+This app takes **one or more words** as input and **predicts the next word** (ranked candidates with scores and plots).
+
+Building **Next-Word Predictor** entailed:
+
+- Creating **training** (and held-out **test**) text from English **blogs, Twitter, and news** in the SwiftKey-style corpora
+- **Tokenizing** and tabulating **n-gram counts** on the training side
+- Fitting a **Katz backoff** language model on those tables
+- **Evaluating** next-word performance on test instances (see `model_accuracy_report.Rmd`)
+- **Pruning** and packaging the model for a responsive **Shiny** deployment
+
+Key R tooling in this repository includes **`data.table`** (n-gram tables and speed), **`shiny`** / **`shinythemes`**, **`ggplot2`**, and report workflows with **`rmarkdown`** (milestone EDA uses **`dplyr`** and **`ggplot2`**).
+
+## Model algorithm
+
+The prediction model uses the **Katz back-off algorithm**: it estimates **P(next word \| context)** by combining evidence from **higher-order n-grams** and **falling back** to shorter histories when contexts are rare or missing (Katz, 1987).
+
+- **Observed contexts:** Greater weight goes to continuations that actually appeared in the training counts.
+- **Backoff:** If a full context is sparse or absent, probability mass moves to **lower-order** histories (e.g. quadgram → trigram → bigram → unigram), with **discounting** so mass is not exhausted by the seen continuations alone.
+- **Order used here:** **Unigrams through quadgrams** — a practical cap on order for **speed and memory**; accuracy could improve with more data or higher order at higher cost.
+
+> Katz, S. M. (1987). Estimation of probabilities from sparse data for the language model component of a speech recognizer. *IEEE Transactions on Acoustics, Speech, and Signal Processing*, 35(3), 400–401.
+
+## Implementation (design choices)
+
+To obtain **reasonable accuracy** in **reasonable time** in the browser, the implementation uses standard tradeoffs between model size and coverage:
+
+- **Pruned higher-order n-grams:** For the deployed LM, **bigrams, trigrams, and quadgrams** are kept only when their **count exceeds a threshold** (see `model_accuracy_report.Rmd`: higher-order types with count ≥ 3). **Unigrams** stay for vocabulary and backoff endpoints.
+- **Context length:** The model can use up to the **last three words** as the **quadgram** history; longer user phrases still **condition** on the full token sequence, but the **deepest** table match uses that **trailing** context, with **backoff** when needed.
+- **Absolute discount `D`:** Exposed in the Shiny UI as **“Katz absolute discount D”** so we can see sensitivity to the standard Katz discounting parameter (default **0.75** on the live app).
+
+**Input handling**
+
+- Lowercase text; keep **letters and apostrophes** only (same as milestone tokenizer).
+- **No** sentence-break reset at `.` `!` `?` — the whole box is one phrase.
+
+## Prediction: using the Shiny app
+
+**Instructions:**
+
+1. Enter a phrase in **“Phrase / n-gram prefix”** (any length you like; default example *the rest of the*).
+2. Optionally set **“Katz absolute discount D”** and **“How many candidates to rank”** (top-**K** list size, up to 50).
+3. Press **“Predict next word”**.
+
+**Output (as on the live site):**
+
+- Short **context** message (full phrase length; quadgram uses last three words; backoff to shorter histories).
+- **Best guess:** top-ranked next word.
+- **Top predictions (rank & Katz score)** — table of candidates and scores.
+- **Probability visualization** — horizontal bar chart (**renormalized** over the displayed top-K).
+- **Cumulative mass over ranks** — how probability concentrates by rank.
+
+*Footer on the app:* Scores are Katz backoff probabilities over an **approximate candidate set** (continuations seen in training plus frequent unigrams); bars renormalize across the displayed top-K for readability.
+
+## Evaluation & reports
+
+- **`model_accuracy_report.Rmd`** — **Rank-based** accuracy for top-**K** predictions (top-1 full credit, graded decay by rank, zero if absent from the list), plus comparison of **full** vs **pruned** training and **timing**.
+- **`capstone_milestone_report.Rmd`** — corpus **EDA** (scale, sampling, lexical summaries).
+
+## Thank you
+
+**Try it:** [SwiftKey-Next-Word on shinyapps.io](https://aseemanand.shinyapps.io/SwiftKey-Next-Word/)
+
