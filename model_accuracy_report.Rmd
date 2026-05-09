@@ -1,0 +1,204 @@
+---
+title: "Model accuracy report"
+subtitle: "Data Science Capstone — predictive evaluation"
+author: "Aseem Anand"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: readable
+    df_print: kable
+    self_contained: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 10,
+  fig.height = 5
+)
+```
+
+This report continues **`capstone_milestone_report.Rmd`**: English SwiftKey text (blogs, news, Twitter) from **`Coursera-SwiftKey.zip`** or extracted **`final/en_US/`**, using the **same token rule** as the milestone EDA (`extract_alpha_tokens`: lowercase words with letters and apostrophes). The milestone uses larger head samples for plots; here **`lines_per_source`** is smaller so training and Bachman-style evaluation knit quickly—raise it for stronger models.
+
+A random **train/test split** at the **line** level feeds Katz **n-gram** tables (training) and **test-set n-gram type frequencies** (evaluation instances).
+
+The **evaluation protocol** follows the rank-based accuracy summary described in the [Model Accuracy Report](https://shelbybachman.github.io/data-science-capstone/reports/Model-Accuracy-Report.html): sample high- and low-frequency 3-grams and 4-grams from the test corpus, ask the model for the **50** most likely next tokens given the typed prefix, and convert ranks into a smooth accuracy score.
+
+```{r deps}
+if (!requireNamespace("data.table", quietly = TRUE)) {
+  install.packages("data.table", repos = "https://cloud.r-project.org")
+}
+library(dplyr)
+library(ggplot2)
+library(knitr)
+
+source("R/milestone_paths.R", encoding = "UTF-8")
+source("R/milestone_load_samples.R", encoding = "UTF-8")
+source("R/source_lm_pipeline.R", encoding = "UTF-8")
+
+swiftkey <- resolve_swiftkey_en()
+assert_swiftkey_data_available(swiftkey)
+
+# Head sample per source file — larger samples yield richer test n-gram bins (slower knit).
+lines_per_source <- 2200L
+train_frac <- 0.80
+katz_discount <- 0.75
+n_top_predictions <- 50L
+n_samples_per_bin <- 25L
+
+raw_lines <- assemble_head_samples(swiftkey, lines_per_source)$text
+sp <- train_test_tokens_from_lines(raw_lines, train_frac = train_frac, seed = 42L)
+```
+
+Training incorporates **`r round(train_frac * 100)`%** of the sampled lines (chosen at random); testing uses the remainder so training lines never appear as raw lines in the test pool. From **tokenized test lines only**, every distinct trigram (`start` = two words, `end` = third) and quadgram (`start` = three words, `end` = fourth) receives a **frequency** count.
+
+**High-frequency test types** are those with frequency **> 50**; **low-frequency** types are those with frequency **> 10** and **< 25** (matching the cited report’s bins). Up to **`r n_samples_per_bin`** instances are sampled from each bin for both 3-grams and 4-grams. The **same** list of prefixes and target words is reused for both trained models below so comparisons are paired.
+
+## Models compared
+
+1. **Full table:** retain bigrams, trigrams, and quadgrams with count ≥ 1 (plus unigrams).
+2. **App-style pruning:** retain higher-order n-grams only when count **> 2** (i.e. stored types with frequency ≥ 3), analogous to the “training set for app” contrast in the reference report.
+
+Both models combine **multiple n-gram orders** with **Katz backoff**: at each order, continuation probabilities use **absolute discounting** with **`D = ` `r katz_discount`** subtracted from each nonzero joint count; the remaining probability mass is spread according to the **shortened history** (drop the earliest context word), down to **unigrams**. Candidate words are ranked by these backoff probabilities over the model’s candidate set; the top **`r n_top_predictions`** are returned for scoring.
+
+```{r train}
+lm_full <- build_ngram_lm(
+  sp$train,
+  min_freq_uni = 1L,
+  min_freq_bi = 1L,
+  min_freq_tri = 1L,
+  min_freq_quad = 1L
+)
+
+lm_app <- build_ngram_lm(
+  sp$train,
+  min_freq_uni = 1L,
+  min_freq_bi = 3L,
+  min_freq_tri = 3L,
+  min_freq_quad = 3L
+)
+
+kable(
+  tibble(
+    model = c("Full (all retained types)", "Pruned (count > 2)"),
+    ngram_rows = c(lm_n_parameters(lm_full), lm_n_parameters(lm_app))
+  ),
+  caption = "Approximate model size (rows stored across uni–quad tables)"
+)
+```
+
+```{r instances}
+instances <- build_bachman_eval_instances(
+  sp$test,
+  n_samples = n_samples_per_bin,
+  seed = 17L
+)
+
+if (nrow(instances) == 0L) {
+  stop(
+    "No evaluation instances — increase lines_per_source or relax frequency cuts in sample_ngram_eval_pairs().",
+    call. = FALSE
+  )
+}
+
+acc_full <- evaluate_lm_on_instances(
+  instances,
+  lm_full,
+  katz_discount = katz_discount,
+  n_to_return = n_top_predictions
+)
+acc_app <- evaluate_lm_on_instances(
+  instances,
+  lm_app,
+  katz_discount = katz_discount,
+  n_to_return = n_top_predictions
+)
+
+accuracy_long <- dplyr::bind_rows(
+  dplyr::mutate(acc_full, training = "All retained n-grams"),
+  dplyr::mutate(acc_app, training = "N-grams with count > 2")
+)
+
+accuracy_long$ngram <- factor(accuracy_long$ngram, levels = c("3-gram", "4-gram"))
+accuracy_long$training <- factor(
+  accuracy_long$training,
+  levels = c("All retained n-grams", "N-grams with count > 2")
+)
+```
+
+## Accuracy definition (reference methodology)
+
+For each evaluation pair `(start, end)` the model returns the top **`r n_top_predictions`** candidates with columns `end` (candidate word), `score`, and `rank`.
+
+- If the true word **`end`** is ranked **first**, accuracy = **1**.
+- If it appears at rank **`r`** (2–`r n_top_predictions`), accuracy = **`(K - r + 1) / K`** with **`K = ` `r n_top_predictions`**.
+- If it does **not** appear among the returned candidates, accuracy = **0**.
+
+```{r accuracy-summary}
+summ <- accuracy_long %>%
+  group_by(training, ngram, freq_level) %>%
+  summarise(mean_accuracy = mean(accuracy), .groups = "drop")
+kable(summ, digits = 3, caption = "Mean Bachman-style accuracy by facet")
+```
+
+## Accuracy versus test-set type frequency
+
+```{r accuracy-plot}
+ggplot(
+  dplyr::arrange(accuracy_long, ngram, freq_test),
+  aes(x = freq_test, y = accuracy, colour = ngram, group = ngram)
+) +
+  geom_point(alpha = 0.85, na.rm = TRUE) +
+  geom_smooth(method = "loess", se = FALSE, linewidth = 0.7, formula = y ~ x) +
+  scale_color_brewer(palette = "Set2") +
+  facet_wrap(~training, nrow = 1L) +
+  labs(
+    x = "Frequency of n-gram type in held-out test text",
+    y = "Accuracy",
+    colour = "",
+    title = "Next-word accuracy vs. frequency of test n-gram types"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+## Computational effort
+
+Timing covers **identical** `(start, end)` pairs for each model: wall-clock seconds for all `predict_next_word` calls.
+
+```{r timing}
+tm_full <- time_prediction_pairs(
+  instances$start,
+  instances$end,
+  lm_full,
+  katz_discount = katz_discount,
+  n_to_return = n_top_predictions
+)
+tm_app <- time_prediction_pairs(
+  instances$start,
+  instances$end,
+  lm_app,
+  katz_discount = katz_discount,
+  n_to_return = n_top_predictions
+)
+
+kable(
+  tibble(
+    model = c("Full", "Pruned"),
+    seconds = c(tm_full$elapsed_sec, tm_app$elapsed_sec),
+    predictions = c(tm_full$n, tm_app$n)
+  ),
+  digits = 3,
+  caption = "Prediction timing on the fixed evaluation set"
+)
+```
+
+---
+
+**Interpretation:** pruning removes rare contexts so tables shrink (`lm_n_parameters`) and timings usually improve for Shiny-like workloads; accuracy versus rare test bins (`freq_level == "low frequency"`) is the usual casualty unless backoff bridges gaps effectively.
