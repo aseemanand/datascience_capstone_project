@@ -24,11 +24,11 @@ knitr::opts_chunk$set(
 )
 ```
 
-This report continues **`capstone_milestone_report.Rmd`**: English SwiftKey text (blogs, news, Twitter) from **`Coursera-SwiftKey.zip`** or extracted **`final/en_US/`**, using the **same token rule** as the milestone EDA (`extract_alpha_tokens`: lowercase words with letters and apostrophes). The milestone uses larger head samples for plots; here **`lines_per_source`** is smaller so training and Bachman-style evaluation knit quickly—raise it for stronger models.
+This report continues **`capstone_milestone_report.Rmd`**: English SwiftKey text (blogs, news, Twitter) from **`Coursera-SwiftKey.zip`** or extracted **`final/en_US/`**, using the **same token rule** as the milestone EDA (`extract_alpha_tokens`: lowercase words with letters and apostrophes). The milestone uses larger head samples for plots; here **`lines_per_source`** is smaller so training and rank-based evaluation knit quickly—raise it for stronger models.
 
 A random **train/test split** at the **line** level feeds Katz **n-gram** tables (training) and **test-set n-gram type frequencies** (evaluation instances).
 
-The **evaluation protocol** follows the rank-based accuracy summary described in the [Model Accuracy Report](https://shelbybachman.github.io/data-science-capstone/reports/Model-Accuracy-Report.html): sample high- and low-frequency 3-grams and 4-grams from the test corpus, ask the model for the **50** most likely next tokens given the typed prefix, and convert ranks into a smooth accuracy score.
+The **evaluation protocol** uses a **rank-based accuracy** summary: sample high- and low-frequency 3-grams and 4-grams from the test corpus, ask the model for the **50** most likely next tokens given the typed prefix, and convert ranks into a smooth accuracy score.
 
 ```{r deps}
 if (!requireNamespace("data.table", quietly = TRUE)) {
@@ -58,12 +58,12 @@ sp <- train_test_tokens_from_lines(raw_lines, train_frac = train_frac, seed = 42
 
 Training incorporates **`r round(train_frac * 100)`%** of the sampled lines (chosen at random); testing uses the remainder so training lines never appear as raw lines in the test pool. From **tokenized test lines only**, every distinct trigram (`start` = two words, `end` = third) and quadgram (`start` = three words, `end` = fourth) receives a **frequency** count.
 
-**High-frequency test types** are those with frequency **> 50**; **low-frequency** types are those with frequency **> 10** and **< 25** (matching the cited report’s bins). Up to **`r n_samples_per_bin`** instances are sampled from each bin for both 3-grams and 4-grams. The **same** list of prefixes and target words is reused for both trained models below so comparisons are paired.
+**High-frequency test types** are those with frequency **> 50**; **low-frequency** types are those with frequency **> 10** and **< 25**. Up to **`r n_samples_per_bin`** instances are sampled from each bin for both 3-grams and 4-grams. The **same** list of prefixes and target words is reused for both trained models below so comparisons are paired.
 
 ## Models compared
 
 1. **Full table:** retain bigrams, trigrams, and quadgrams with count ≥ 1 (plus unigrams).
-2. **App-style pruning:** retain higher-order n-grams only when count **> 2** (i.e. stored types with frequency ≥ 3), analogous to the “training set for app” contrast in the reference report.
+2. **App-style pruning:** retain higher-order n-grams only when count **> 2** (i.e. stored types with frequency ≥ 3), matching the pruned model used for the Shiny deployment.
 
 Both models combine **multiple n-gram orders** with **Katz backoff**: at each order, continuation probabilities use **absolute discounting** with **`D = ` `r katz_discount`** subtracted from each nonzero joint count; the remaining probability mass is spread according to the **shortened history** (drop the earliest context word), down to **unigrams**. Candidate words are ranked by these backoff probabilities over the model’s candidate set; the top **`r n_top_predictions`** are returned for scoring.
 
@@ -94,7 +94,7 @@ kable(
 ```
 
 ```{r instances}
-instances <- build_bachman_eval_instances(
+instances <- build_rank_eval_instances(
   sp$test,
   n_samples = n_samples_per_bin,
   seed = 17L
@@ -132,7 +132,7 @@ accuracy_long$training <- factor(
 )
 ```
 
-## Accuracy definition (reference methodology)
+## Accuracy definition (rank-based)
 
 For each evaluation pair `(start, end)` the model returns the top **`r n_top_predictions`** candidates with columns `end` (candidate word), `score`, and `rank`.
 
@@ -144,7 +144,7 @@ For each evaluation pair `(start, end)` the model returns the top **`r n_top_pre
 summ <- accuracy_long %>%
   group_by(training, ngram, freq_level) %>%
   summarise(mean_accuracy = mean(accuracy), .groups = "drop")
-kable(summ, digits = 3, caption = "Mean Bachman-style accuracy by facet")
+kable(summ, digits = 3, caption = "Mean rank-based accuracy by facet")
 ```
 
 ## Accuracy versus test-set type frequency

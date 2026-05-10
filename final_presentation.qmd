@@ -15,7 +15,7 @@ format:
 
 ## Live app
 
-**Next-word prediction (Katz backoff)** — [aseemanand.shinyapps.io/SwiftKey-Next-Word](https://aseemanand.shinyapps.io/SwiftKey-Next-Word/)
+**Next-word prediction (Katz backoff)** — [aseemanand.shinyapps.io/Next-Word-Predictor](https://aseemanand.shinyapps.io/Next-Word-Predictor/)
 
 ![](<Word Prediction App.png>){.r-stretch fig-alt="Shiny app: phrase input, Katz sliders, best guess and top predictions"}
 
@@ -85,5 +85,5 @@ To obtain **reasonable accuracy** in **reasonable time** in the browser, the imp
 
 ## Thank you
 
-**Try it:** [SwiftKey-Next-Word on shinyapps.io](https://aseemanand.shinyapps.io/SwiftKey-Next-Word/)
+**Try it:** [Next-Word-Predictor](https://aseemanand.shinyapps.io/Next-Word-Predictor/)
 

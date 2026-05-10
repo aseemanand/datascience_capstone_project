@@ -1,12 +1,10 @@
 #!/usr/bin/env Rscript
-# Deploy the next-word app to https://www.shinyapps.io/ (see shelbybachman README pattern).
+# Deploy the next-word app to https://www.shinyapps.io/
 # Prerequisites:
 #   1. rsconnect account: rsconnect::setAccountInfo(...) once per machine
-#   2. Model artifact:    Rscript scripts/build_app_lm.R
+#   2. SwiftKey data at repo root (zip or final/en_US/) so build_app_lm.R can run
 # Run from repository root:
 #   Rscript scripts/deploy_shinyapps.R
-# Optional app name:
-#   Rscript scripts/deploy_shinyapps.R My-App-Name
 
 proj_root <- normalizePath(".")
 if (!file.exists(file.path(proj_root, "app.R"))) {
@@ -15,15 +13,26 @@ if (!file.exists(file.path(proj_root, "app.R"))) {
 
 lm_path <- file.path(proj_root, "app", "data", "lm_app.rds")
 if (!file.exists(lm_path)) {
-  stop("Missing ", lm_path, " — run: Rscript scripts/build_app_lm.R", call. = FALSE)
+  build_sh <- file.path(proj_root, "scripts", "build_app_lm.R")
+  if (!file.exists(build_sh)) {
+    stop("Missing ", lm_path, " and no ", build_sh, call. = FALSE)
+  }
+  message("Building ", lm_path, " (run scripts/build_app_lm.R manually to tune sample size) ...")
+  rc <- system2("Rscript", build_sh, wait = TRUE)
+  if (is.null(rc) || rc != 0L) {
+    stop(
+      "build_app_lm.R failed (exit ", rc, "). Ensure Coursera-SwiftKey.zip or final/en_US/*.txt exists.",
+      call. = FALSE
+    )
+  }
+}
+if (!file.exists(lm_path)) {
+  stop("Still missing ", lm_path, " after build.", call. = FALSE)
 }
 
 if (!requireNamespace("rsconnect", quietly = TRUE)) {
   stop("Install rsconnect: install.packages('rsconnect')", call. = FALSE)
 }
-
-argv <- commandArgs(trailingOnly = TRUE)
-app_name <- if (length(argv) >= 1L) argv[[1]] else NULL
 
 app_paths <- file.path(
   "app",
@@ -45,10 +54,8 @@ args_deploy <- list(
   appDir = proj_root,
   appPrimaryDoc = "app.R",
   appFiles = bundle,
+  appName = "Next-Word-Predictor",
   lint = FALSE
 )
-if (!is.null(app_name)) {
-  args_deploy$appName <- app_name
-}
 
 do.call(rsconnect::deployApp, args_deploy)

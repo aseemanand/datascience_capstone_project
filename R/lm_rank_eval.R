@@ -1,5 +1,4 @@
-# Evaluation aligned with capstone "model accuracy" reports:
-# rank-based score using top-K predictions (see Bachman Model Accuracy Report methodology).
+# Rank-based next-word evaluation: top-K list scoring for held-out n-gram instances.
 
 #' Tabulate trigram types (bigram start -> third word) with frequencies on tokenized test text.
 test_trigram_type_frequencies <- function(tokens_list) {
@@ -68,7 +67,7 @@ start_text_to_tokens <- function(start_text) {
   unlist(strsplit(trimws(start_text), "\\s+"))
 }
 
-#' Next-word predictions as a data frame with columns `end`, `score`, `rank` (Bachman-style interface).
+#' Next-word predictions as a data frame with columns `end`, `score`, `rank`.
 predict_next_word <- function(
     start_text,
     lm,
@@ -91,8 +90,8 @@ predict_next_word <- function(
   )
 }
 
-#' Accuracy rule from Model Accuracy Report: top-1 -> 1; rank r in top-K -> (K - r + 1) / K; absent -> 0.
-evaluate_accuracy_bachman <- function(
+#' Rank-based accuracy: top-1 -> 1; rank r in top-K -> (K - r + 1) / K; absent -> 0.
+evaluate_accuracy_ranked <- function(
     start_text,
     true_end,
     lm,
@@ -115,9 +114,8 @@ evaluate_accuracy_bachman <- function(
   (as.numeric(n_to_return) - as.numeric(r) + 1) / as.numeric(n_to_return)
 }
 
-#' Fixed evaluation instances (same rows for every model): sampled high/low-frequency
-#' 3- and 4-gram types from held-out tokenized text.
-build_bachman_eval_instances <- function(
+#' Fixed evaluation instances: sampled high/low-frequency 3- and 4-gram types from held-out text.
+build_rank_eval_instances <- function(
     test_tokens,
     n_samples = 25L,
     seed = 17L
@@ -170,7 +168,7 @@ evaluate_lm_on_instances <- function(
   acc <- vapply(
     seq_len(nrow(instances)),
     function(i) {
-      evaluate_accuracy_bachman(
+      evaluate_accuracy_ranked(
         instances$start[i],
         instances$end[i],
         lm,

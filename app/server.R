@@ -98,15 +98,40 @@ function(input, output, session) {
       show_n <- min(input$top_k, nrow(p$table))
       df <- head(p$table, show_n)
       df$prob <- df$score / sum(df$score)
-      ggplot(df, aes(x = reorder(word, prob), y = prob)) +
-        geom_col(fill = "#5b8c85", colour = "#222222", linewidth = 0.2) +
-        coord_flip() +
-        scale_y_continuous(labels = label_percent(accuracy = 0.1)) +
-        labs(x = NULL, y = "Normalized share of top-K scores", title = "Next-word distribution (top predictions)") +
+      # Short axis labels avoid overlap; full tokens appear in the table above.
+      nch <- if (show_n > 35) 14L else if (show_n > 22) 16L else 20L
+      w <- as.character(df$word)
+      df$word_lab <- ifelse(
+        nchar(w) > nch,
+        paste0(substr(w, 1L, nch - 1L), "\u2026"),
+        w
+      )
+      ylab_size <- if (show_n > 35) 7.5 else if (show_n > 22) 8.5 else 9.5
+      ggplot(df, aes(x = stats::reorder(word_lab, prob), y = prob)) +
+        geom_col(fill = "#5b8c85", colour = "#222222", linewidth = 0.2, width = 0.88) +
+        coord_flip(clip = "off") +
+        scale_y_continuous(labels = label_percent(accuracy = 0.1), expand = expansion(mult = c(0, 0.04))) +
+        scale_x_discrete(expand = expansion(add = 0.55)) +
+        labs(
+          x = NULL,
+          y = "Normalized share of top-K scores",
+          title = "Next-word distribution (top predictions)",
+          subtitle = "Y-axis may truncate long tokens; see table for full spelling."
+        ) +
         theme_minimal(base_size = 13) +
         theme(
+          plot.margin = margin(10, 20, 14, 18, unit = "pt"),
           panel.grid.major.y = element_blank(),
-          plot.title = element_text(face = "bold")
+          plot.title = element_text(face = "bold", size = 11.5, margin = margin(b = 4)),
+          plot.subtitle = element_text(size = 9, colour = "gray35", margin = margin(b = 10)),
+          axis.text.y = element_text(
+            size = ylab_size,
+            hjust = 1,
+            vjust = 0.5,
+            lineheight = 1,
+            margin = margin(r = 10, unit = "pt")
+          ),
+          axis.text.x = element_text(size = 9.5)
         )
     },
     height = function() {
@@ -118,7 +143,8 @@ function(input, output, session) {
         return(120)
       }
       show_n <- min(isolate(input$top_k), nrow(p$table))
-      max(280, show_n * 18)
+      # ~40px per row so discrete axis labels do not stack on each other
+      max(520L, 150L + as.integer(show_n) * 40L)
     }
   )
 
