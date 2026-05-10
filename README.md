@@ -13,7 +13,6 @@ This repository contains work for a Data Science project using the English Swift
 
 [Capstone slides](final_presentation.qmd)  
 *Quarto Revealjs deck (overview, Katz backoff, implementation, app walkthrough). Render with `quarto::quarto_render("final_presentation.qmd")` or the RStudio **Render** button.*
-
+[RPubs slides] (https://rpubs.com/aseem_anand/next-word-predictor-app)
 ---
 
-**Data:** **`Coursera-SwiftKey.zip`** at the repo root, or **`final/en_US/`** extracted, for reports and building **`app/data/lm_app.rds`**. Shiny deploy: **`app/README.md`** and **`Rscript scripts/deploy_shinyapps.R`** from the repo root.
