@@ -1508,17 +1508,15 @@ rule</strong> as the milestone EDA (<code>extract_alpha_tokens</code>:
 lowercase words with letters and apostrophes). The milestone uses larger
 head samples for plots; here
 <strong><code>lines_per_source</code></strong> is smaller so training
-and Bachman-style evaluation knit quickly—raise it for stronger
-models.</p>
+and rank-based evaluation knit quickly—raise it for stronger models.</p>
 <p>A random <strong>train/test split</strong> at the
 <strong>line</strong> level feeds Katz <strong>n-gram</strong> tables
 (training) and <strong>test-set n-gram type frequencies</strong>
 (evaluation instances).</p>
-<p>The <strong>evaluation protocol</strong> follows the rank-based
-accuracy summary described in the <a href="https://shelbybachman.github.io/data-science-capstone/reports/Model-Accuracy-Report.html">Model
-Accuracy Report</a>: sample high- and low-frequency 3-grams and 4-grams
-from the test corpus, ask the model for the <strong>50</strong> most
-likely next tokens given the typed prefix, and convert ranks into a
+<p>The <strong>evaluation protocol</strong> uses a <strong>rank-based
+accuracy</strong> summary: sample high- and low-frequency 3-grams and
+4-grams from the test corpus, ask the model for the <strong>50</strong>
+most likely next tokens given the typed prefix, and convert ranks into a
 smooth accuracy score.</p>
 <pre class="r"><code>if (!requireNamespace(&quot;data.table&quot;, quietly = TRUE)) {
   install.packages(&quot;data.table&quot;, repos = &quot;https://cloud.r-project.org&quot;)
@@ -1552,11 +1550,11 @@ words, <code>end</code> = fourth) receives a <strong>frequency</strong>
 count.</p>
 <p><strong>High-frequency test types</strong> are those with frequency
 <strong>&gt; 50</strong>; <strong>low-frequency</strong> types are those
-with frequency <strong>&gt; 10</strong> and <strong>&lt; 25</strong>
-(matching the cited report’s bins). Up to <strong>25</strong> instances
-are sampled from each bin for both 3-grams and 4-grams. The
-<strong>same</strong> list of prefixes and target words is reused for
-both trained models below so comparisons are paired.</p>
+with frequency <strong>&gt; 10</strong> and <strong>&lt; 25</strong>. Up
+to <strong>25</strong> instances are sampled from each bin for both
+3-grams and 4-grams. The <strong>same</strong> list of prefixes and
+target words is reused for both trained models below so comparisons are
+paired.</p>
 <div id="models-compared" class="section level2">
 <h2>Models compared</h2>
 <ol style="list-style-type: decimal">
@@ -1564,8 +1562,7 @@ both trained models below so comparisons are paired.</p>
 with count ≥ 1 (plus unigrams).</li>
 <li><strong>App-style pruning:</strong> retain higher-order n-grams only
 when count <strong>&gt; 2</strong> (i.e. stored types with frequency ≥
-3), analogous to the “training set for app” contrast in the reference
-report.</li>
+3), matching the pruned model used for the Shiny deployment.</li>
 </ol>
 <p>Both models combine <strong>multiple n-gram orders</strong> with
 <strong>Katz backoff</strong>: at each order, continuation probabilities
@@ -1619,7 +1616,7 @@ tables)</caption>
 </tr>
 </tbody>
 </table>
-<pre class="r"><code>instances &lt;- build_bachman_eval_instances(
+<pre class="r"><code>instances &lt;- build_rank_eval_instances(
   sp$test,
   n_samples = n_samples_per_bin,
   seed = 17L
@@ -1656,8 +1653,8 @@ accuracy_long$training &lt;- factor(
   levels = c(&quot;All retained n-grams&quot;, &quot;N-grams with count &gt; 2&quot;)
 )</code></pre>
 </div>
-<div id="accuracy-definition-reference-methodology" class="section level2">
-<h2>Accuracy definition (reference methodology)</h2>
+<div id="accuracy-definition-rank-based" class="section level2">
+<h2>Accuracy definition (rank-based)</h2>
 <p>For each evaluation pair <code>(start, end)</code> the model returns
 the top <strong>50</strong> candidates with columns <code>end</code>
 (candidate word), <code>score</code>, and <code>rank</code>.</p>
@@ -1673,9 +1670,9 @@ candidates, accuracy = <strong>0</strong>.</li>
 <pre class="r"><code>summ &lt;- accuracy_long %&gt;%
   group_by(training, ngram, freq_level) %&gt;%
   summarise(mean_accuracy = mean(accuracy), .groups = &quot;drop&quot;)
-kable(summ, digits = 3, caption = &quot;Mean Bachman-style accuracy by facet&quot;)</code></pre>
+kable(summ, digits = 3, caption = &quot;Mean rank-based accuracy by facet&quot;)</code></pre>
 <table>
-<caption>Mean Bachman-style accuracy by facet</caption>
+<caption>Mean rank-based accuracy by facet</caption>
 <thead>
 <tr class="header">
 <th align="left">training</th>
@@ -1761,12 +1758,12 @@ kable(
 <tbody>
 <tr class="odd">
 <td align="left">Full</td>
-<td align="right">1.047</td>
+<td align="right">0.950</td>
 <td align="right">2</td>
 </tr>
 <tr class="even">
 <td align="left">Pruned</td>
-<td align="right">0.608</td>
+<td align="right">0.547</td>
 <td align="right">2</td>
 </tr>
 </tbody>
