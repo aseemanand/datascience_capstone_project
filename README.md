@@ -11,8 +11,7 @@ This repository contains work for a Data Science project using the English Swift
 [Next-word prediction app](https://aseemanand.shinyapps.io/Next-Word-Predictor/) *(shinyapps.io name: **Next-Word-Predictor**)*  
 *Interactive Shiny app — type a phrase, run **Predict next word**, and inspect ranked predictions, probability bar chart, and cumulative-mass plot.*
 
-[Capstone slides](final_presentation.qmd)  
-*Quarto Revealjs deck (overview, Katz backoff, implementation, app walkthrough). Render with `quarto::quarto_render("final_presentation.qmd")` or the RStudio **Render** button.*
-[RPubs slides] (https://rpubs.com/aseem_anand/next-word-predictor-app)
+[Project slides](https://rpubs.com/aseem_anand/next-word-predictor-app)
+*Describes the project goal, implementation, evaluation.*
 ---
 
